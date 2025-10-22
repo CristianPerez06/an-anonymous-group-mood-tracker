@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Identity } from "@semaphore-protocol/identity";
-import { generateProof } from "@semaphore-protocol/proof";
+import { generateProof, type SemaphoreProof } from "@semaphore-protocol/proof";
 import type {
   RootResponse,
   WitnessResponse,
@@ -16,36 +16,66 @@ export default function App() {
   const [mood, setMood] = useState("happy");
   const [scope, setScope] = useState(new Date().toISOString().slice(0, 10));
   const [status, setStatus] = useState("");
+  const [groupCreated, setGroupCreated] = useState(false);
+
+  async function createGroup() {
+    setStatus("Creating group…");
+    try {
+      const res: Response = await fetch(`${API}/group`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: "default", depth: 20 }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setGroupCreated(true);
+        setStatus(`Group created ✅ id=${data.id}, size=${data.size}`);
+      } else {
+        setStatus(`Group creation failed: ${data.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      setStatus(
+        `Group creation failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
 
   async function join() {
     if (!id) return;
     setStatus("Joining…");
-    const res: Response = await fetch(`${API}/groups/default/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ commitment: id.commitment }),
-    });
-    const j: JoinResponse = await res.json();
-    if (res.ok) {
-      setIndex(j.index);
-      setStatus(`Joined ✅ index=${j.index}`);
-    } else setStatus(`Join failed: ${j.error}`);
+    try {
+      const res: Response = await fetch(`${API}/group/default/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commitment: id.commitment.toString() }),
+      });
+      const j: JoinResponse = await res.json();
+      if (res.ok) {
+        setIndex(j.index);
+        setStatus(`Joined ✅ index=${j.index}`);
+      } else {
+        setStatus(`Join failed: ${j.error}`);
+      }
+    } catch (error) {
+      setStatus(
+        `Join failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
   }
 
   async function submit() {
-    debugger;
     if (!id || index == null) return;
 
     setStatus("Generating proof…");
 
     // Get the current root from the API
-    const rootRes: Response = await fetch(`${API}/groups/default/root`);
+    const rootRes: Response = await fetch(`${API}/group/default/root`);
     const rootData: RootResponse = await rootRes.json();
-    const { root }: { root: string } = rootData;
+    const { root: merkleRoot } = rootData;
 
     // Get the witness for your specific index
     const witnessRes: Response = await fetch(
-      `${API}/groups/default/witness/${index}`
+      `${API}/group/default/witness/${index}`
     );
     const witness: WitnessResponse = await witnessRes.json();
 
@@ -55,10 +85,21 @@ export default function App() {
     }
 
     // Generate proof with the witness data
-    const proof: any = await generateProof(id, witness as any, mood, scope);
+    const proofData: SemaphoreProof = await generateProof(
+      id,
+      witness as any,
+      mood,
+      scope
+    );
 
-    // Set the merkle root from the API
-    const publicSignals: { merkleRoot: string } = { merkleRoot: root };
+    // Extract the proof array and public signals
+    const proof = proofData.points; // The proof array
+    const publicSignals = {
+      merkleRoot,
+      nullifier: proofData.nullifier,
+      message: proofData.message,
+      scope: proofData.scope,
+    };
 
     const r: Response = await fetch(`${API}/mood`, {
       method: "POST",
@@ -86,7 +127,11 @@ export default function App() {
           : "Creating identity…"}
       </p>
 
-      <button onClick={join}>Join group</button>
+      {!groupCreated ? (
+        <button onClick={createGroup}>Create group</button>
+      ) : (
+        <button onClick={join}>Join group</button>
+      )}
       <select value={mood} onChange={(e) => setMood(e.target.value)}>
         <option value="happy">happy</option>
         <option value="neutral">neutral</option>

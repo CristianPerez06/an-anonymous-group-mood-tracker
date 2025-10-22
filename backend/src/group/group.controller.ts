@@ -34,7 +34,7 @@ export class GroupController {
     }
   }
 
-  /** Add member: POST /groups/:id/members
+  /** Add member: POST /group/:id/members
    *  body: { commitment: 0x... }
    *  returns: { index, root }
    */
@@ -50,7 +50,7 @@ export class GroupController {
     }
   }
 
-  /** Get group data: GET /groups/:id
+  /** Get group data: GET /group/:id
    *  returns: { id, depth, root, size, commitments }
    */
   @Get(':id')
@@ -61,6 +61,40 @@ export class GroupController {
       throw new HttpException(
         e.message ?? 'group not found',
         HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  /** Get group root: GET /group/:id/root
+   *  returns: { root }
+   */
+  @Get(':id/root')
+  getGroupRoot(@Param('id') id: string) {
+    try {
+      return this.svc.getGroupRoot(id);
+    } catch (e: any) {
+      throw new HttpException(
+        e.message ?? 'group not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  /** Get witness for member: GET /group/:id/witness/:index
+   *  returns: { pathIndices, siblings } or { error }
+   */
+  @Get(':id/witness/:index')
+  getWitness(@Param('id') id: string, @Param('index') index: string) {
+    try {
+      const memberIndex = parseInt(index, 10);
+      if (isNaN(memberIndex) || memberIndex < 0) {
+        throw new Error('invalid member index');
+      }
+      return this.svc.getWitness(id, memberIndex);
+    } catch (e: any) {
+      throw new HttpException(
+        e.message ?? 'cannot get witness',
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
