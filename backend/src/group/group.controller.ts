@@ -80,6 +80,21 @@ export class GroupController {
     }
   }
 
+  /** Get all groups: GET /group
+   *  returns: [{ id, depth, root, size }]
+   */
+  @Get()
+  getAllGroups() {
+    try {
+      return this.svc.getAllGroups();
+    } catch (e: any) {
+      throw new HttpException(
+        e.message ?? 'failed to get groups',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   /** Get witness for member: GET /group/:id/witness/:index
    *  returns: { pathIndices, siblings } or { error }
    */

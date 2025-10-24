@@ -32,11 +32,35 @@ export class GroupsStore {
   addMember(id: GroupId, commitment: string) {
     const state = this.get(id);
     if (!state) throw new Error('group not found');
+
+    // Check if commitment already exists
+    if (state.commitments.includes(commitment)) {
+      throw new Error('member already exists in this group');
+    }
+
     state.group.addMember(commitment);
     state.commitments.push(commitment);
     return {
       index: state.commitments.length - 1,
       root: state.group.root.toString(),
     };
+  }
+
+  getAll() {
+    const groups: Array<{
+      id: string;
+      depth: number;
+      root: string;
+      size: number;
+    }> = [];
+    for (const [id, state] of this.groups.entries()) {
+      groups.push({
+        id: state.id,
+        depth: state.depth,
+        root: state.group.root.toString(),
+        size: state.commitments.length,
+      });
+    }
+    return groups;
   }
 }

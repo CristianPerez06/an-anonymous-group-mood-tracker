@@ -67,4 +67,8 @@ export class GroupsService {
       return { error: 'failed to generate witness' };
     }
   }
+
+  getAllGroups() {
+    return this.store.getAll();
+  }
 }
